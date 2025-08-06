@@ -107,4 +107,49 @@ router.get('/profile', auth, async (req, res) => {
     }
 });
 
+// Create admin user (DEVELOPMENT ONLY - REMOVE IN PRODUCTION)
+router.post('/register-admin', async (req, res) => {
+    try {
+        const { name, email, password, address } = req.body;
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: 'User already exists with this email' });
+        }
+
+        // Create new admin user
+        const user = new User({
+            name,
+            email,
+            password,
+            address,
+            role: 'admin' // Set role to admin
+        });
+
+        await user.save();
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: user._id },
+            process.env.JWT_SECRET || 'your_jwt_secret_key_here_change_in_production',
+            { expiresIn: '7d' }
+        );
+
+        res.status(201).json({
+            message: 'Admin user created successfully',
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        console.error('Admin registration error:', error);
+        res.status(500).json({ message: 'Error creating admin user' });
+    }
+});
+
 module.exports = router; 
