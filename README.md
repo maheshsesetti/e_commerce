@@ -8,6 +8,7 @@ A complete Node.js backend for an e-commerce platform with user authentication, 
 | ------------------- | ------------------------------- | ---------------------------------------- |
 | ✅ User Auth         | `POST /register`, `POST /login` | Register and login users                 |
 | ✅ Product CRUD      | `GET/POST/PUT/DELETE /products` | Add/edit/delete products (Admin only)    |
+| ✅ Image Upload      | `POST /products` (multipart)    | Firebase Storage integration for images  |
 | ✅ Orders            | `POST /orders`                  | User can place order                     |
 | ✅ Payments (Mock)   | `POST /payment`                 | Simulate payment (Stripe/Razorpay later) |
 | ✅ Shipment Tracking | `GET /orders/:id`               | Track order status                       |
@@ -21,6 +22,8 @@ A complete Node.js backend for an e-commerce platform with user authentication, 
 - **JWT** - Authentication
 - **bcryptjs** - Password hashing
 - **CORS** - Cross-origin resource sharing
+- **Firebase Admin SDK** - Cloud storage for images
+- **Multer** - File upload middleware
 
 ## Prerequisites
 
@@ -41,20 +44,32 @@ cd e_commerce
 npm install
 ```
 
-3. Create a `.env` file in the root directory:
+3. Create a `.env` file in the root directory (see `env.example` for all available options):
 ```env
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/ecommerce
 JWT_SECRET=your_jwt_secret_key_here_change_in_production
+
+# Firebase Configuration (for image uploads)
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYour private key\n-----END PRIVATE KEY-----\n"
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccount.com
+FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
 ```
 
-4. Start MongoDB (if using local):
+4. Set up Firebase Storage (for image uploads):
+   - Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
+   - Enable Storage in your Firebase project
+   - Generate a service account key and update your `.env` file
+   - See `FIREBASE_SETUP.md` for detailed instructions
+
+5. Start MongoDB (if using local):
 ```bash
 # Start MongoDB service
 mongod
 ```
 
-5. Run the application:
+6. Run the application:
 ```bash
 # Development mode (with auto-restart)
 npm run dev
@@ -117,32 +132,51 @@ GET /api/products?category=electronics&search=laptop&sort=price&order=asc&limit=
 GET /api/products/:id
 ```
 
-#### Create Product (Admin Only)
+#### Create Product with Images (Admin Only)
 ```
 POST /api/products
 Authorization: Bearer <admin_token>
-Content-Type: application/json
+Content-Type: multipart/form-data
 
-{
-  "name": "Laptop",
-  "description": "High-performance laptop",
-  "price": 999.99,
-  "stock": 50,
-  "category": "electronics",
-  "images": ["image1.jpg", "image2.jpg"]
-}
+Fields:
+- name: string
+- description: string
+- price: number
+- stock: number
+- category: string
+- images: file[] (multiple image files)
 ```
 
-#### Update Product (Admin Only)
+#### Update Product with Images (Admin Only)
 ```
 PUT /api/products/:id
 Authorization: Bearer <admin_token>
-Content-Type: application/json
+Content-Type: multipart/form-data
 
-{
-  "price": 899.99,
-  "stock": 45
-}
+Fields (all optional):
+- name: string
+- description: string
+- price: number
+- stock: number
+- category: string
+- isActive: boolean
+- images: file[] (will replace existing images)
+```
+
+#### Add Images to Existing Product
+```
+POST /api/products/:id/images
+Authorization: Bearer <admin_token>
+Content-Type: multipart/form-data
+
+Fields:
+- images: file[] (multiple image files)
+```
+
+#### Delete Specific Image
+```
+DELETE /api/products/:id/images/:imageIndex
+Authorization: Bearer <admin_token>
 ```
 
 #### Delete Product (Admin Only)
@@ -260,7 +294,7 @@ Content-Type: application/json
 
 ### Product
 - name, description, price, stock
-- category, images
+- category, images (Firebase Storage URLs)
 - rating, numReviews
 - isActive flag
 - timestamps
@@ -324,9 +358,10 @@ To create an admin user, you can either:
 
 - Real payment gateway integration (Stripe, Razorpay)
 - Email notifications
-- File upload for product images
 - Advanced search and filtering
 - User reviews and ratings
 - Shopping cart functionality
 - Discount and coupon system
-- Analytics and reporting 
+- Analytics and reporting
+- Image compression and optimization
+- CDN integration for faster image delivery 
